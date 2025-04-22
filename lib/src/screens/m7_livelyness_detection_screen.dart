@@ -174,17 +174,22 @@ class _MLivelyness7DetectionScreenState
       },
     ).toList();
 
-    final inputImageData = InputImageData(
+    final inputImageMetadata = InputImageMetadata(
       size: imageSize,
-      imageRotation: imageRotation,
-      inputImageFormat: inputImageFormat,
+      rotation: imageRotation,
+      format: inputImageFormat,
       planeData: planeData,
     );
 
     final inputImage = InputImage.fromBytes(
-      bytes: bytes,
-      inputImageData: inputImageData,
-    );
+    bytes: bytes,
+    inputImageMetadata: InputImageMetadata(
+      size: imageSize,
+      rotation: imageRotation,
+      format: inputImageFormat,
+      planeData: planeData,
+    ),
+  );
 
     _processImage(inputImage);
   }
