@@ -11,6 +11,7 @@ export 'package:equatable/equatable.dart';
 export 'package:flutter/foundation.dart';
 export 'package:flutter/material.dart';
 export 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+export 'package:google_mlkit_commons/google_mlkit_commons.dart';
 export 'package:path_provider/path_provider.dart';
 // export 'package:rxdart/rxdart.dart' hide Notification;
 // export 'package:uuid/uuid.dart';
