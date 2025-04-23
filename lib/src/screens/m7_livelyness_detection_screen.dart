@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:ui' as ui;
+// import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
 import 'package:m7_livelyness_detection/index.dart';
@@ -175,12 +175,12 @@ class _MLivelyness7DetectionScreenState
       },
     ).toList();
 
-    final inputImageMetadata = InputImageMetadata(
-      size: imageSize,
-      rotation: imageRotation,
-      format: inputImageFormat,
-      bytesPerRow:planeData.single.bytesPerRow,
-    );
+    // final inputImageMetadata = InputImageMetadata(
+    //   size: imageSize,
+    //   rotation: imageRotation,
+    //   format: inputImageFormat,
+    //   bytesPerRow:planeData.single.bytesPerRow,
+    // );
 
     final inputImage = InputImage.fromBytes(
     bytes: bytes,
@@ -188,7 +188,7 @@ class _MLivelyness7DetectionScreenState
       size: imageSize,
       rotation: imageRotation,
       format: inputImageFormat,
-      bytesPerRow: planeData.single.bytesPerRow,
+        bytesPerRow: planeData.last.bytesPerRow,
     ),
   );
 
@@ -207,12 +207,12 @@ class _MLivelyness7DetectionScreenState
       if (faces.isEmpty) {
         _resetSteps();
       } else {
-        final firstFace = faces.first;
-        final painter = M7FaceDetectorPainter(
-          firstFace,
-          inputImage.metadata!.size,
-          inputImage.metadata!.rotation,
-        );
+        // final firstFace = faces.first;
+        // final painter = M7FaceDetectorPainter(
+        //   firstFace,
+        //   inputImage.metadata!.size,
+        //   inputImage.metadata!.rotation,
+        // );
         if (_isProcessingStep &&
             _steps[_stepsKey.currentState?.currentIndex ?? 0].step ==
                 M7LivelynessStep.blink) {
