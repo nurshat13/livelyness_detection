@@ -1,8 +1,9 @@
 import 'dart:async';
-// import 'dart:ui' as ui;
+import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:m7_livelyness_detection/index.dart';
+import 'package:camera/camera.dart';
 
 List<CameraDescription> availableCams = [];
 
@@ -15,6 +16,7 @@ class M7LivelynessDetectionScreenV1 extends StatefulWidget {
   final Widget circleIndicator;
   final Widget description;
   final TextStyle styleAnimatedContainer;
+
   const M7LivelynessDetectionScreenV1({
     required this.config,
     required this.appBar,
@@ -28,20 +30,17 @@ class M7LivelynessDetectionScreenV1 extends StatefulWidget {
   });
 
   @override
-  State<M7LivelynessDetectionScreenV1> createState() =>
-      _MLivelyness7DetectionScreenState();
+  State<M7LivelynessDetectionScreenV1> createState() => _MLivelyness7DetectionScreenState();
 }
 
-class _MLivelyness7DetectionScreenState
-    extends State<M7LivelynessDetectionScreenV1> {
+class _MLivelyness7DetectionScreenState extends State<M7LivelynessDetectionScreenV1> {
   //* MARK: - Private Variables
   //? =========================================================
   late final List<M7LivelynessStepItem> steps;
   CameraController? _cameraController;
   int _cameraIndex = 0;
   bool _isBusy = false;
-  final GlobalKey<M7LivelynessDetectionStepOverlayState> _stepsKey =
-      GlobalKey<M7LivelynessDetectionStepOverlayState>();
+  final GlobalKey<M7LivelynessDetectionStepOverlayState> _stepsKey = GlobalKey<M7LivelynessDetectionStepOverlayState>();
   bool _isProcessingStep = false;
   bool _didCloseEyes = false;
   bool _isTakingPicture = false;
@@ -86,14 +85,11 @@ class _MLivelyness7DetectionScreenState
   void _postFrameCallBack() async {
     availableCams = await availableCameras();
     if (availableCams.any(
-      (element) =>
-          element.lensDirection == CameraLensDirection.front &&
-          element.sensorOrientation == 90,
+      (element) => element.lensDirection == CameraLensDirection.front && element.sensorOrientation == 90,
     )) {
       _cameraIndex = availableCams.indexOf(
-        availableCams.firstWhere((element) =>
-            element.lensDirection == CameraLensDirection.front &&
-            element.sensorOrientation == 90),
+        availableCams.firstWhere(
+            (element) => element.lensDirection == CameraLensDirection.front && element.sensorOrientation == 90),
       );
     } else {
       _cameraIndex = availableCams.indexOf(
@@ -146,8 +142,8 @@ class _MLivelyness7DetectionScreenState
     for (final Plane plane in cameraImage.planes) {
       allBytes.putUint8List(plane.bytes);
     }
-    final bytes = allBytes.done().buffer.asUint8List();
-
+    
+  
     final Size imageSize = Size(
       cameraImage.width.toDouble(),
       cameraImage.height.toDouble(),
@@ -164,33 +160,32 @@ class _MLivelyness7DetectionScreenState
     );
     if (inputImageFormat == null) return;
 
+    if (Platform.isIOS && (inputImageFormat != InputImageFormat.bgra8888)) return;
+
+    Uint8List bytes = (Platform.isAndroid && inputImageFormat != InputImageFormat.nv21)
+        ? _convertYUV420ToNV21(cameraImage)
+        : _convertBGRA8888(cameraImage);
+
     final planeData = cameraImage.planes.map(
       (Plane plane) {
         return InputImageMetadata(
           bytesPerRow: plane.bytesPerRow,
-          size: Size(plane.width?.toDouble() ?? 100, plane.height?.toDouble() ?? 100), 
+          size: Size(plane.width?.toDouble() ?? 100, plane.height?.toDouble() ?? 100),
           format: inputImageFormat!,
           rotation: imageRotation,
         );
       },
     ).toList();
 
-    // final inputImageMetadata = InputImageMetadata(
-    //   size: imageSize,
-    //   rotation: imageRotation,
-    //   format: inputImageFormat,
-    //   bytesPerRow:planeData.single.bytesPerRow,
-    // );
-
     final inputImage = InputImage.fromBytes(
-    bytes: bytes,
-    metadata: InputImageMetadata(
-      size: imageSize,
-      rotation: imageRotation,
-      format: inputImageFormat,
+      bytes: bytes,
+      metadata: InputImageMetadata(
+        size: imageSize,
+        rotation: imageRotation,
+        format: Platform.isIOS ? InputImageFormat.bgra8888 : InputImageFormat.nv21,
         bytesPerRow: planeData.last.bytesPerRow,
-    ),
-  );
+      ),
+    );
 
     _processImage(inputImage);
   }
@@ -202,20 +197,11 @@ class _MLivelyness7DetectionScreenState
     _isBusy = true;
     final faces = await M7MLHelper.instance.processInputImage(inputImage);
 
-    if (inputImage.metadata?.size != null &&
-        inputImage.metadata?.rotation != null) {
+    if (inputImage.metadata?.size != null && inputImage.metadata?.rotation != null) {
       if (faces.isEmpty) {
         _resetSteps();
       } else {
-        // final firstFace = faces.first;
-        // final painter = M7FaceDetectorPainter(
-        //   firstFace,
-        //   inputImage.metadata!.size,
-        //   inputImage.metadata!.rotation,
-        // );
-        if (_isProcessingStep &&
-            _steps[_stepsKey.currentState?.currentIndex ?? 0].step ==
-                M7LivelynessStep.blink) {
+        if (_isProcessingStep && _steps[_stepsKey.currentState?.currentIndex ?? 0].step == M7LivelynessStep.blink) {
           if (_didCloseEyes) {
             if ((faces.first.leftEyeOpenProbability ?? 1.0) < 0.75 &&
                 (faces.first.rightEyeOpenProbability ?? 1.0) < 0.75) {
@@ -261,7 +247,6 @@ class _MLivelyness7DetectionScreenState
   }) async {
     try {
       if (_cameraController == null) return;
-      // if (face == null) return;
       if (_isTakingPicture) {
         return;
       }
@@ -275,13 +260,34 @@ class _MLivelyness7DetectionScreenState
         _startLiveFeed();
         return;
       }
-      _onDetectionCompleted(
-        imgToReturn: clickedImage,
-        didCaptureAutomatically: didCaptureAutomatically,
-      );
+      _processCapturedImage(clickedImage, didCaptureAutomatically);
     } catch (e) {
       _startLiveFeed();
+      print("Error capturing image: $e");
     }
+  }
+
+  Future<void> _processCapturedImage(XFile clickedImage, bool didCaptureAutomatically) async {
+    final String imgPath = clickedImage.path;
+    final inputImage = InputImage.fromFilePath(imgPath);
+
+    // Process the captured image with ML Kit Face Detector
+    final faces = await M7MLHelper.instance.processInputImage(inputImage);
+
+    if (faces.isNotEmpty) {
+      final face = faces.first;
+
+      // Smile detection logic
+      final smileProbability = face.smilingProbability ?? 0;
+      if (smileProbability > 0.75) {
+        _completeStep(step: M7LivelynessStep.smile);
+      }
+    }
+
+    _onDetectionCompleted(
+      imgToReturn: clickedImage,
+      didCaptureAutomatically: didCaptureAutomatically,
+    );
   }
 
   void _onDetectionCompleted({
@@ -350,10 +356,8 @@ class _MLivelyness7DetectionScreenState
             M7LivelynessDetection.instance.thresholdConfig.firstWhereOrNull(
           (p0) => p0 is M7BlinkDetectionThreshold,
         ) as M7BlinkDetectionThreshold?;
-        if ((face.leftEyeOpenProbability ?? 1.0) <
-                (blinkThreshold?.leftEyeProbability ?? 0.25) &&
-            (face.rightEyeOpenProbability ?? 1.0) <
-                (blinkThreshold?.rightEyeProbability ?? 0.25)) {
+        if ((face.leftEyeOpenProbability ?? 1.0) < (blinkThreshold?.leftEyeProbability ?? 0.25) &&
+            (face.rightEyeOpenProbability ?? 1.0) < (blinkThreshold?.rightEyeProbability ?? 0.25)) {
           _startProcessing();
           if (mounted) {
             setState(
@@ -367,8 +371,7 @@ class _MLivelyness7DetectionScreenState
             M7LivelynessDetection.instance.thresholdConfig.firstWhereOrNull(
           (p0) => p0 is M7HeadTurnDetectionThreshold,
         ) as M7HeadTurnDetectionThreshold?;
-        if ((face.headEulerAngleY ?? 0) >
-            (headTurnThreshold?.rotationAngle ?? 45)) {
+        if ((face.headEulerAngleY ?? 0) > (headTurnThreshold?.rotationAngle ?? 45)) {
           _startProcessing();
           await _completeStep(step: step);
         }
@@ -378,8 +381,7 @@ class _MLivelyness7DetectionScreenState
             M7LivelynessDetection.instance.thresholdConfig.firstWhereOrNull(
           (p0) => p0 is M7HeadTurnDetectionThreshold,
         ) as M7HeadTurnDetectionThreshold?;
-        if ((face.headEulerAngleY ?? 0) >
-            (headTurnThreshold?.rotationAngle ?? -50)) {
+        if ((face.headEulerAngleY ?? 0) > (headTurnThreshold?.rotationAngle ?? -50)) {
           _startProcessing();
           await _completeStep(step: step);
         }
@@ -389,13 +391,44 @@ class _MLivelyness7DetectionScreenState
             M7LivelynessDetection.instance.thresholdConfig.firstWhereOrNull(
           (p0) => p0 is M7SmileDetectionThreshold,
         ) as M7SmileDetectionThreshold?;
-        if ((face.smilingProbability ?? 0) >
-            (smileThreshold?.probability ?? 0.75)) {
+        if ((face.smilingProbability ?? 0) > (smileThreshold?.probability ?? 0.75)) {
           _startProcessing();
           await _completeStep(step: step);
         }
         break;
+      default:
+        break;
     }
+  }
+
+  Uint8List _convertBGRA8888(CameraImage image) {
+    final plane = image.planes[0];
+    return plane.bytes;
+  }
+
+  /// Convert YUV_420_888 format to NV21
+  Uint8List _convertYUV420ToNV21(CameraImage image) {
+    final int width = image.width;
+    final int height = image.height;
+    final int ySize = width * height;
+    final int uvSize = (width ~/ 2) * (height ~/ 2) * 2;
+
+    Uint8List nv21 = Uint8List(ySize + uvSize);
+    int uvIndex = ySize;
+
+    // Copy Y plane
+    nv21.setRange(0, ySize, image.planes[0].bytes);
+
+    // Interleave U and V planes
+    final Uint8List uPlane = image.planes[1].bytes;
+    final Uint8List vPlane = image.planes[2].bytes;
+
+    for (int i = 0; i < uvSize ~/ 2; i++) {
+      nv21[uvIndex++] = uPlane[i]; // U
+      nv21[uvIndex++] = vPlane[i]; // V
+    }
+
+    return nv21;
   }
 
   //* MARK: - Private Methods for UI Components
@@ -409,8 +442,7 @@ class _MLivelyness7DetectionScreenState
   }
 
   Widget _buildDetectionBody() {
-    if (_cameraController == null ||
-        _cameraController?.value.isInitialized == false) {
+    if (_cameraController == null || _cameraController?.value.isInitialized == false) {
       return Expanded(child: widget.circleIndicator);
     }
     final Widget cameraView = CameraPreview(_cameraController!);
