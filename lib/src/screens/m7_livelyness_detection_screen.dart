@@ -446,6 +446,20 @@ class _MLivelyness7DetectionScreenState extends State<M7LivelynessDetectionScree
       return Expanded(child: widget.circleIndicator);
     }
     final Widget cameraView = CameraPreview(_cameraController!);
+    
+    // Calculate adaptive oval size based on available space
+    final screenSize = MediaQuery.of(context).size;
+    final screenWidth = screenSize.width;
+    final screenHeight = screenSize.height;
+    final isLandscape = screenWidth > screenHeight;
+    
+    // Use the smaller dimension to ensure the oval fits properly
+    // For landscape (iPad horizontal), use height-based calculation
+    // For portrait, use width-based calculation
+    final double ovalSize = isLandscape 
+        ? (screenHeight - 150).clamp(200.0, 500.0)  // 150 for margins and description
+        : (screenWidth - 50).clamp(200.0, 500.0);
+    
     return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         padding: const EdgeInsets.all(16),
@@ -457,7 +471,7 @@ class _MLivelyness7DetectionScreenState extends State<M7LivelynessDetectionScree
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(
-              height: MediaQuery.of(context).size.width - 50,
+              height: ovalSize,
               child: Stack(
                 children: [
                   Center(
