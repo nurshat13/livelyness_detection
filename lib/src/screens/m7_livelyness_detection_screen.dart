@@ -142,8 +142,7 @@ class _MLivelyness7DetectionScreenState extends State<M7LivelynessDetectionScree
     for (final Plane plane in cameraImage.planes) {
       allBytes.putUint8List(plane.bytes);
     }
-    
-  
+
     final Size imageSize = Size(
       cameraImage.width.toDouble(),
       cameraImage.height.toDouble(),
@@ -445,41 +444,53 @@ class _MLivelyness7DetectionScreenState extends State<M7LivelynessDetectionScree
     if (_cameraController == null || _cameraController?.value.isInitialized == false) {
       return Expanded(child: widget.circleIndicator);
     }
-    final Widget cameraView = CameraPreview(_cameraController!);
-    
+    final Widget cameraView = Transform.rotate(
+      angle: -90 * 3.14159 / 180, // Rotate camera view -90 degrees
+      child: CameraPreview(_cameraController!),
+    );
+
     // Calculate adaptive oval size based on available space
     final screenSize = MediaQuery.of(context).size;
     final screenWidth = screenSize.width;
     final screenHeight = screenSize.height;
     final isLandscape = screenWidth > screenHeight;
-    
+
     // Use the smaller dimension to ensure the oval fits properly
     // For landscape (iPad horizontal), use height-based calculation
     // For portrait, use width-based calculation
-    final double ovalSize = isLandscape 
-        ? (screenHeight - 150).clamp(200.0, 500.0)  // 150 for margins and description
-        : (screenWidth - 50).clamp(200.0, 500.0);
-    
+    final double ovalSize = isLandscape
+        ? (screenHeight - 150).clamp(200.0, 500.0) // 150 for margins and description
+        : (screenWidth - 200).clamp(200.0, 500.0);
+
     return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: widget.backgroundColor,
+          //color: widget.backgroundColor,
           borderRadius: const BorderRadius.all(Radius.circular(16)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              height: ovalSize,
+            Container(
+              height: 500,
+              padding: EdgeInsets.only(top: 100),
               child: Stack(
                 children: [
                   Center(
-                    child: ClipOval(
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(color: widget.primaryColor),
-                        child: ClipOval(child: cameraView),
+                    child: AspectRatio(
+                      aspectRatio: 1.6,
+                      child: Transform.rotate(
+                        angle: 90 * 3.14159 / 180, // Rotate oval 90 degrees
+                        child: ClipOval(
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(color: widget.primaryColor),
+                            child: ClipOval(
+                              child: cameraView,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
