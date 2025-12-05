@@ -69,11 +69,7 @@ class _MLivelyness7DetectionScreenState extends State<M7LivelynessDetectionScree
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: widget.appBar,
-      backgroundColor: widget.scaffoldColor,
-      body: _buildBody(),
-    );
+    return _buildBody();
   }
 
   //* MARK: - Private Methods for Business Logic
@@ -433,85 +429,81 @@ class _MLivelyness7DetectionScreenState extends State<M7LivelynessDetectionScree
   //* MARK: - Private Methods for UI Components
   //? =========================================================
   Widget _buildBody() {
-    return Stack(
-      children: [
-        Column(children: [_buildDetectionBody()])
-      ],
-    );
+    return _buildDetectionBody();
   }
 
   Widget _buildDetectionBody() {
     if (_cameraController == null || _cameraController?.value.isInitialized == false) {
-      return Expanded(child: widget.circleIndicator);
+      return Center(child: widget.circleIndicator);
     }
-    final Widget cameraView = Transform.rotate(
-      angle: -90 * 3.14159 / 180, // Rotate camera view -90 degrees
-      child: CameraPreview(_cameraController!),
-    );
 
-    // Calculate adaptive oval size based on available space
-    final screenSize = MediaQuery.of(context).size;
-    final screenWidth = screenSize.width;
-    final screenHeight = screenSize.height;
-    final isLandscape = screenWidth > screenHeight;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Use the available constraints to size the camera
+        final availableWidth = constraints.maxWidth;
+        final availableHeight = constraints.maxHeight;
 
-    // Use the smaller dimension to ensure the oval fits properly
-    // For landscape (iPad horizontal), use height-based calculation
-    // For portrait, use width-based calculation
-    final double ovalSize = isLandscape
-        ? (screenHeight - 150).clamp(200.0, 500.0) // 150 for margins and description
-        : (screenWidth - 200).clamp(200.0, 500.0);
-
-    return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          //color: widget.backgroundColor,
-          borderRadius: const BorderRadius.all(Radius.circular(16)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        return Stack(
+          fit: StackFit.expand,
           children: [
-            Container(
-              height: 500,
-              padding: EdgeInsets.only(top: 100),
-              child: Stack(
-                children: [
-                  Center(
-                    child: AspectRatio(
-                      aspectRatio: 1.6,
-                      child: Transform.rotate(
-                        angle: 90 * 3.14159 / 180, // Rotate oval 90 degrees
-                        child: ClipOval(
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(color: widget.primaryColor),
-                            child: ClipOval(
-                              child: cameraView,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  M7LivelynessDetectionStepOverlay(
-                    key: _stepsKey,
-                    steps: _steps,
-                    circleIndicator: widget.circleIndicator,
-                    styleAnimatedContainer: widget.styleAnimatedContainer,
-                    onCompleted: () => Future.delayed(
-                      const Duration(milliseconds: 500),
-                      () => _takePicture(
-                        didCaptureAutomatically: true,
-                      ),
-                    ),
-                  ),
-                ],
+            // Camera preview - constrained to available space
+            Center(
+              child: SizedBox(
+                width: _cameraController!.value.previewSize?.height ?? 100,
+                height: _cameraController!.value.previewSize?.width ?? 100,
+                child: CameraPreview(_cameraController!),
               ),
             ),
-            const SizedBox(height: 24),
-            widget.description,
+            // Instruction text overlay - only show our custom one
+            if (_steps.isNotEmpty && _steps[_stepsKey.currentState?.currentIndex ?? 0].isCompleted == false)
+              Positioned(
+                bottom: 40,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: widget.primaryColor,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      _steps[_stepsKey.currentState?.currentIndex ?? 0].title,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            // Hide the overlay widget completely to avoid duplicate text
+            Offstage(
+              child: M7LivelynessDetectionStepOverlay(
+                key: _stepsKey,
+                steps: _steps,
+                circleIndicator: widget.circleIndicator,
+                styleAnimatedContainer: widget.styleAnimatedContainer,
+                onCompleted: () => Future.delayed(
+                  const Duration(milliseconds: 500),
+                  () => _takePicture(
+                    didCaptureAutomatically: true,
+                  ),
+                ),
+              ),
+            ),
           ],
-        ));
+        );
+      },
+    );
   }
 }
